@@ -7,38 +7,144 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .num { font-variant-numeric: tabular-nums; }
+    /* شريط تمرير أجمل للجدول */
+    ::-webkit-scrollbar { height: 10px; width: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(15,23,42,.25); border-radius: 999px; }
+    ::-webkit-scrollbar-track { background: rgba(15,23,42,.05); }
   </style>
 </head>
 
 <body class="bg-slate-50 text-slate-900">
-  <main class="max-w-7xl mx-auto px-4 py-8">
-    <section class="mb-6">
-      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6">
-        <div class="flex justify-between items-center">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <!-- أدوات -->
+    <section class="flex flex-col lg:flex-row gap-3">
+      <div class="flex-1">
+        <label class="block text-xs text-slate-500 mb-1">بحث</label>
+        <input id="searchInput" type="text" placeholder="ابحث باسم الدار/المجمع…"
+          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400" />
+      </div>
+
+      <div class="w-full lg:w-72">
+        <label class="block text-xs text-slate-500 mb-1">اختيار الدار/المجمع</label>
+        <select id="branchSelect"
+          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400"></select>
+      </div>
+
+      <div class="w-full lg:w-64">
+        <label class="block text-xs text-slate-500 mb-1">عرض حسب المرحلة</label>
+        <select id="stageFilter"
+          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400">
+          <option value="all">الكل</option>
+          <option value="1">المرحلة الأولى</option>
+          <option value="2">المرحلة الثانية</option>
+          <option value="3">المرحلة الثالثة</option>
+          <option value="4">المرحلة الرابعة</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ملخص -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- بطاقة هدف المحفظة -->
+      <div class="lg:col-span-2 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
+        <div class="flex items-start justify-between gap-4">
           <div>
             <div class="text-sm text-slate-500">هدف المحفظة الإجمالي</div>
-            <div id="portfolioTotal" class="text-3xl font-bold num mt-1">—</div>
+            <div id="portfolioTotal" class="mt-1 text-3xl font-bold num">—</div>
+            <div class="mt-1 text-xs text-slate-500">مجموع أهداف جميع الدور/المجمعات</div>
           </div>
-          <div>
-            <span id="stageBadge" class="px-3 py-1 rounded-full text-xs bg-slate-100 ring-1 ring-slate-200">
+          <div class="flex items-center gap-2">
+            <span id="stageBadge" class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-slate-100 text-slate-700 ring-1 ring-slate-200">
               المرحلة: —
+            </span>
+            <span id="achBadge" class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+              تحقيق: —
             </span>
           </div>
         </div>
 
         <div class="mt-4">
           <div class="flex justify-between text-xs text-slate-500 mb-1">
-            <span>نسبة التحقيق</span>
-            <span id="achPercent">0%</span>
+            <span>نسبة التغطية الإجمالية</span>
+            <span id="achPercent" class="num">—</span>
           </div>
-          <div class="w-full bg-slate-200 rounded-full h-3">
+          <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
             <div id="progressBar" class="bg-emerald-500 h-3 rounded-full" style="width:0%"></div>
+          </div>
+          <div class="mt-2 text-xs text-slate-500">
+            <span class="num" id="coverageTotal">—</span> تغطية حالية • من أصل <span class="num" id="portfolioTotal2">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- بطاقة سريعة للدار المختارة -->
+      <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
+        <div class="text-sm text-slate-500">الدار/المجمع المختار</div>
+        <div id="selectedName" class="mt-1 text-lg font-bold">—</div>
+
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
+            <div class="text-xs text-slate-500">إجمالي التكلفة السنوية</div>
+            <div id="selectedAnnual" class="mt-1 font-semibold num">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
+            <div class="text-xs text-slate-500">عدد الطالبات</div>
+            <div id="selectedStudents" class="mt-1 font-semibold num">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
+            <div class="text-xs text-slate-500">التغطية الحالية</div>
+            <div id="selectedCoverage" class="mt-1 font-semibold num">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
+            <div class="text-xs text-slate-500">هدف المحفظة</div>
+            <div id="selectedGoal" class="mt-1 font-semibold num">—</div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 overflow-x-auto">
+    <!-- تفاصيل المراحل -->
+    <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-sm text-slate-500">تفاصيل المراحل (للدار المختارة)</div>
+          <div class="text-xs text-slate-500 mt-1">الأرقام مأخوذة من الأعمدة: المرحلة الأول/الثانية/الثالثة/الرابعة</div>
+        </div>
+        <div class="text-xs text-slate-500">نسبة الدار: <span id="selectedRatio" class="num">—</span></div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
+          <div class="text-xs text-slate-500">المرحلة الأولى</div>
+          <div id="stage1" class="mt-1 text-lg font-bold num">—</div>
+        </div>
+        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
+          <div class="text-xs text-slate-500">المرحلة الثانية</div>
+          <div id="stage2" class="mt-1 text-lg font-bold num">—</div>
+        </div>
+        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
+          <div class="text-xs text-slate-500">المرحلة الثالثة</div>
+          <div id="stage3" class="mt-1 text-lg font-bold num">—</div>
+        </div>
+        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
+          <div class="text-xs text-slate-500">المرحلة الرابعة</div>
+          <div id="stage4" class="mt-1 text-lg font-bold num">—</div>
+        </div>
+      </div>
+
+      <div class="mt-5">
+        <div class="text-sm text-slate-600 font-medium mb-2">مستهدف الأيام (1–30)</div>
+        <div id="daysGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"></div>
+      </div>
+    </section>
+
+    <!-- الجدول الكامل -->
+    <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6 overflow-x-auto">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="text-sm text-slate-600 font-medium">الجدول الكامل</div>
+        <div class="text-xs text-slate-500">يعرض جميع الأعمدة كما هي (مراحل + 1–30)</div>
+      </div>
+
       <table class="min-w-full text-sm text-right">
         <thead class="border-b bg-slate-50">
           <tr id="tableHead"></tr>
@@ -49,51 +155,141 @@
   </main>
 
 <script>
+const fmtSAR = (n) => {
+  const v = Number(n || 0);
+  return v.toLocaleString('ar-SA', { maximumFractionDigits: 2 }) + ' ر.س';
+};
+
+const pickStageFromPercent = (p) => {
+  const v = Number(p || 0);
+  if (v >= 75) return 4;
+  if (v >= 50) return 3;
+  if (v >= 25) return 2;
+  return 1;
+};
+
+let RAW = [];
+let FILTERED = [];
+let HEADERS = [];
+
+function renderPortfolioSummary(list){
+  const totalGoal = list.reduce((a,r)=>a + (Number(r._portfolio_goal)||0), 0);
+  const totalCov  = list.reduce((a,r)=>a + (Number(r._coverage)||0), 0);
+  const percent = totalGoal > 0 ? (totalCov/totalGoal)*100 : 0;
+  const stage = pickStageFromPercent(percent);
+
+  document.getElementById('portfolioTotal').textContent = fmtSAR(totalGoal);
+  document.getElementById('portfolioTotal2').textContent = fmtSAR(totalGoal);
+  document.getElementById('coverageTotal').textContent = fmtSAR(totalCov);
+  document.getElementById('achPercent').textContent = percent.toFixed(1) + '%';
+  document.getElementById('progressBar').style.width = Math.min(100, percent).toFixed(1) + '%';
+  document.getElementById('stageBadge').textContent = 'المرحلة: ' + stage;
+  document.getElementById('achBadge').textContent = 'تحقيق: ' + percent.toFixed(1) + '%';
+}
+
+function fillBranchSelect(list){
+  const sel = document.getElementById('branchSelect');
+  sel.innerHTML = "";
+  list.forEach((r, idx)=>{
+    const opt = document.createElement('option');
+    opt.value = r._m;
+    opt.textContent = r["اسم الدار"] ?? ('#' + (r._m ?? idx));
+    sel.appendChild(opt);
+  });
+}
+
+function renderSelected(m){
+  const r = FILTERED.find(x => String(x._m) === String(m)) || FILTERED[0];
+  if(!r) return;
+
+  document.getElementById('selectedName').textContent = r["اسم الدار"] ?? '—';
+  document.getElementById('selectedAnnual').textContent = fmtSAR(r._annual_cost);
+  document.getElementById('selectedStudents').textContent = (r._students ?? 0).toLocaleString('ar-SA');
+  document.getElementById('selectedCoverage').textContent = fmtSAR(r._coverage);
+  document.getElementById('selectedGoal').textContent = fmtSAR(r._portfolio_goal);
+  document.getElementById('selectedRatio').textContent = (r._ratio_percent != null ? r._ratio_percent.toFixed(0) + '%' : (r["نسبة"] || '—'));
+
+  document.getElementById('stage1').textContent = fmtSAR(r._stage1);
+  document.getElementById('stage2').textContent = fmtSAR(r._stage2);
+  document.getElementById('stage3').textContent = fmtSAR(r._stage3);
+  document.getElementById('stage4').textContent = fmtSAR(r._stage4);
+
+  const daysGrid = document.getElementById('daysGrid');
+  daysGrid.innerHTML = "";
+  for(let i=1;i<=30;i++){
+    const v = (r._days && r._days[String(i)]) ? r._days[String(i)] : 0;
+    const card = document.createElement('div');
+    card.className = "rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3";
+    card.innerHTML = `
+      <div class="text-xs text-slate-500">اليوم ${i}</div>
+      <div class="mt-1 font-semibold num">${fmtSAR(v)}</div>
+    `;
+    daysGrid.appendChild(card);
+  }
+}
+
+function renderTable(list){
+  const head = document.getElementById('tableHead');
+  const body = document.getElementById('tableBody');
+  head.innerHTML = "";
+  body.innerHTML = "";
+
+  HEADERS.forEach(h=>{
+    const th = document.createElement('th');
+    th.className = "px-3 py-2 font-medium text-slate-600 whitespace-nowrap";
+    th.textContent = h;
+    head.appendChild(th);
+  });
+
+  list.forEach(r=>{
+    const tr = document.createElement('tr');
+    HEADERS.forEach(h=>{
+      const td = document.createElement('td');
+      td.className = "px-3 py-2 whitespace-nowrap num";
+      td.textContent = (r[h] ?? "");
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+function applyFilters(){
+  const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const stageFilter = document.getElementById('stageFilter').value;
+
+  FILTERED = RAW.filter(r=>{
+    const name = String(r["اسم الدار"] || '').toLowerCase();
+    const matchQ = !q || name.includes(q);
+    if(!matchQ) return false;
+    if(stageFilter === "all") return true;
+    const percent = r._portfolio_goal > 0 ? (r._coverage / r._portfolio_goal) * 100 : 0;
+    const st = pickStageFromPercent(percent);
+    return String(st) === String(stageFilter);
+  });
+
+  renderPortfolioSummary(FILTERED);
+  fillBranchSelect(FILTERED);
+  renderTable(FILTERED);
+
+  const sel = document.getElementById('branchSelect');
+  renderSelected(sel.value || (FILTERED[0]?FILTERED[0]._m:null));
+}
+
 fetch('data.json')
   .then(res => res.json())
   .then(data => {
-    const tableHead = document.getElementById('tableHead');
-    const tableBody = document.getElementById('tableBody');
+    RAW = data;
+    // headers: اعرض نفس الأعمدة الأصلية فقط (بدون الحقول المساعدة _*)
+    HEADERS = Object.keys(RAW[0]).filter(k => !k.startsWith('_'));
+    applyFilters();
 
-    const headers = Object.keys(data[0]);
-    headers.forEach(h => {
-      const th = document.createElement('th');
-      th.className = "px-3 py-2 font-medium text-slate-600 whitespace-nowrap";
-      th.textContent = h;
-      tableHead.appendChild(th);
-    });
-
-    let totalPortfolio = 0;
-    let totalCoverage = 0;
-
-    data.forEach(row => {
-      const tr = document.createElement('tr');
-
-      headers.forEach(h => {
-        const td = document.createElement('td');
-        td.className = "px-3 py-2 whitespace-nowrap num";
-        td.textContent = row[h];
-        tr.appendChild(td);
-      });
-
-      totalPortfolio += Number(row["هدف المحفظة"]);
-      totalCoverage += Number(row["التغطية"]);
-      tableBody.appendChild(tr);
-    });
-
-    const percent = ((totalCoverage / totalPortfolio) * 100).toFixed(1);
-
-    document.getElementById('portfolioTotal').textContent =
-      totalPortfolio.toLocaleString('ar-SA') + " ر.س";
-    document.getElementById('achPercent').textContent = percent + "%";
-    document.getElementById('progressBar').style.width = percent + "%";
-
-    let stage = "الأولى";
-    if (percent >= 75) stage = "الرابعة";
-    else if (percent >= 50) stage = "الثالثة";
-    else if (percent >= 25) stage = "الثانية";
-
-    document.getElementById('stageBadge').textContent = "المرحلة: " + stage;
+    document.getElementById('searchInput').addEventListener('input', applyFilters);
+    document.getElementById('stageFilter').addEventListener('change', applyFilters);
+    document.getElementById('branchSelect').addEventListener('change', (e)=> renderSelected(e.target.value));
+  })
+  .catch(err => {
+    document.body.innerHTML = '<div class="p-8 text-red-600">تعذر تحميل data.json — تأكد أن الملف موجود بجانب index.html</div>';
+    console.error(err);
   });
 </script>
 
