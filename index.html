@@ -1,297 +1,612 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>لوحة الدور والمحافظ</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة رمضان — المحافظ الفرعية</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    .num { font-variant-numeric: tabular-nums; }
-    /* شريط تمرير أجمل للجدول */
-    ::-webkit-scrollbar { height: 10px; width: 10px; }
-    ::-webkit-scrollbar-thumb { background: rgba(15,23,42,.25); border-radius: 999px; }
-    ::-webkit-scrollbar-track { background: rgba(15,23,42,.05); }
+    /* تحسينات بسيطة للـ RTL */
+    .scrollbar-thin::-webkit-scrollbar{height:8px;width:8px}
+    .scrollbar-thin::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:999px}
+    .scrollbar-thin::-webkit-scrollbar-track{background:transparent}
   </style>
 </head>
 
 <body class="bg-slate-50 text-slate-900">
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-    <!-- أدوات -->
-    <section class="flex flex-col lg:flex-row gap-3">
-      <div class="flex-1">
-        <label class="block text-xs text-slate-500 mb-1">بحث</label>
-        <input id="searchInput" type="text" placeholder="ابحث باسم الدار/المجمع…"
-          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400" />
-      </div>
-
-      <div class="w-full lg:w-72">
-        <label class="block text-xs text-slate-500 mb-1">اختيار الدار/المجمع</label>
-        <select id="branchSelect"
-          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400"></select>
-      </div>
-
-      <div class="w-full lg:w-64">
-        <label class="block text-xs text-slate-500 mb-1">عرض حسب المرحلة</label>
-        <select id="stageFilter"
-          class="w-full rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400">
-          <option value="all">الكل</option>
-          <option value="1">المرحلة الأولى</option>
-          <option value="2">المرحلة الثانية</option>
-          <option value="3">المرحلة الثالثة</option>
-          <option value="4">المرحلة الرابعة</option>
-        </select>
-      </div>
-    </section>
-
-    <!-- ملخص -->
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- بطاقة هدف المحفظة -->
-      <div class="lg:col-span-2 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <div class="text-sm text-slate-500">هدف المحفظة الإجمالي</div>
-            <div id="portfolioTotal" class="mt-1 text-3xl font-bold num">—</div>
-            <div class="mt-1 text-xs text-slate-500">مجموع أهداف جميع الدور/المجمعات</div>
+  <main class="min-h-screen p-4 sm:p-6 lg:p-8">
+    <div class="mx-auto max-w-7xl space-y-6">
+      <!-- Top controls -->
+      <section class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4 sm:p-5">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <div class="h-9 w-9 rounded-xl bg-slate-900 text-white grid place-items-center text-sm">رم</div>
+              <h1 class="text-lg sm:text-xl font-semibold tracking-tight">لوحة رمضان للمحافظ الفرعية</h1>
+              <span id="badgeStage" class="hidden text-xs rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700"></span>
+            </div>
+            <p class="text-sm text-slate-600">
+              ارفع CSV/JSON (بنفس أعمدة الملف)، أو اعرض العينة. يتم تنظيف الأرقام تلقائيًا (إزالة ر.س، الفواصل، والعلامات الخفية).
+            </p>
           </div>
-          <div class="flex items-center gap-2">
-            <span id="stageBadge" class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-slate-100 text-slate-700 ring-1 ring-slate-200">
-              المرحلة: —
-            </span>
-            <span id="achBadge" class="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
-              تحقيق: —
-            </span>
+
+          <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm cursor-pointer hover:bg-slate-50">
+              <input id="fileInput" type="file" accept=".csv,.json" class="hidden">
+              <span class="text-sm font-medium">رفع ملف CSV/JSON</span>
+              <span class="text-xs text-slate-500">(محليًا)</span>
+            </label>
+
+            <button id="btnLoadSample" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-slate-800">
+              تحميل بيانات العينة
+            </button>
+
+            <div class="flex gap-2">
+              <button id="btnExportJson" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
+                تصدير JSON
+              </button>
+              <button id="btnReset" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">
+                إعادة ضبط
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="mt-4">
-          <div class="flex justify-between text-xs text-slate-500 mb-1">
-            <span>نسبة التغطية الإجمالية</span>
-            <span id="achPercent" class="num">—</span>
+        <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs text-slate-500">بحث</div>
+            <input id="searchInput" placeholder="ابحث باسم الدار/المجمع…" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300" />
           </div>
-          <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-            <div id="progressBar" class="bg-emerald-500 h-3 rounded-full" style="width:0%"></div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs text-slate-500">الترتيب</div>
+            <div class="mt-2 flex gap-2">
+              <select id="sortKey" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300">
+                <option value="progress">الأعلى تحقيقًا</option>
+                <option value="target">الأعلى هدفًا</option>
+                <option value="coverage">الأعلى تغطية</option>
+                <option value="students">الأعلى طالبات</option>
+                <option value="cost">الأعلى تكلفة سنوية</option>
+                <option value="name">بالاسم (أ-ي)</option>
+              </select>
+              <button id="sortDir" class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50" title="عكس الترتيب">↕</button>
+            </div>
           </div>
-          <div class="mt-2 text-xs text-slate-500">
-            <span class="num" id="coverageTotal">—</span> تغطية حالية • من أصل <span class="num" id="portfolioTotal2">—</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- بطاقة سريعة للدار المختارة -->
-      <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-        <div class="text-sm text-slate-500">الدار/المجمع المختار</div>
-        <div id="selectedName" class="mt-1 text-lg font-bold">—</div>
-
-        <div class="mt-4 grid grid-cols-2 gap-3">
-          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
-            <div class="text-xs text-slate-500">إجمالي التكلفة السنوية</div>
-            <div id="selectedAnnual" class="mt-1 font-semibold num">—</div>
-          </div>
-          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
-            <div class="text-xs text-slate-500">عدد الطالبات</div>
-            <div id="selectedStudents" class="mt-1 font-semibold num">—</div>
-          </div>
-          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
-            <div class="text-xs text-slate-500">التغطية الحالية</div>
-            <div id="selectedCoverage" class="mt-1 font-semibold num">—</div>
-          </div>
-          <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
-            <div class="text-xs text-slate-500">هدف المحفظة</div>
-            <div id="selectedGoal" class="mt-1 font-semibold num">—</div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs text-slate-500">إظهار</div>
+            <div class="mt-2 flex items-center justify-between gap-3">
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input id="toggleOnlyWithDays" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+                <span>فقط من لديه خطة 30 يوم</span>
+              </label>
+              <div class="text-xs text-slate-500"><span id="countShown">0</span> / <span id="countAll">0</span></div>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- تفاصيل المراحل -->
-    <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <div class="text-sm text-slate-500">تفاصيل المراحل (للدار المختارة)</div>
-          <div class="text-xs text-slate-500 mt-1">الأرقام مأخوذة من الأعمدة: المرحلة الأول/الثانية/الثالثة/الرابعة</div>
+      <!-- Summary -->
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+          <div class="text-xs text-slate-500">إجمالي هدف المحافظ</div>
+          <div id="sumTarget" class="mt-2 text-2xl font-semibold">—</div>
+          <div class="mt-2 text-xs text-slate-500">مجموع أهداف جميع الدور/المجمعات</div>
         </div>
-        <div class="text-xs text-slate-500">نسبة الدار: <span id="selectedRatio" class="num">—</span></div>
-      </div>
+        <div class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+          <div class="text-xs text-slate-500">إجمالي التغطية الحالية</div>
+          <div id="sumCoverage" class="mt-2 text-2xl font-semibold">—</div>
+          <div class="mt-2 text-xs text-slate-500">من أوقاف الجمعية (حسب الملف)</div>
+        </div>
+        <div class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+          <div class="text-xs text-slate-500">نسبة التحقيق الإجمالية</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <div id="sumProgress" class="text-2xl font-semibold">—</div>
+            <div id="sumProgressHint" class="text-xs text-slate-500"></div>
+          </div>
+          <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div id="sumProgressBar" class="h-full bg-slate-900 rounded-full" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+          <div class="text-xs text-slate-500">إجمالي الطالبات</div>
+          <div id="sumStudents" class="mt-2 text-2xl font-semibold">—</div>
+          <div class="mt-2 text-xs text-slate-500">للتقدير التشغيلي</div>
+        </div>
+      </section>
 
-      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
-          <div class="text-xs text-slate-500">المرحلة الأولى</div>
-          <div id="stage1" class="mt-1 text-lg font-bold num">—</div>
+      <!-- Main grid -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <!-- List -->
+        <div class="lg:col-span-5 rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div class="font-semibold">القائمة</div>
+            <div class="text-xs text-slate-500">انقر لعرض التفاصيل</div>
+          </div>
+          <div id="list" class="max-h-[70vh] overflow-auto scrollbar-thin"></div>
         </div>
-        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
-          <div class="text-xs text-slate-500">المرحلة الثانية</div>
-          <div id="stage2" class="mt-1 text-lg font-bold num">—</div>
-        </div>
-        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
-          <div class="text-xs text-slate-500">المرحلة الثالثة</div>
-          <div id="stage3" class="mt-1 text-lg font-bold num">—</div>
-        </div>
-        <div class="rounded-xl bg-slate-50 ring-1 ring-slate-200 p-4">
-          <div class="text-xs text-slate-500">المرحلة الرابعة</div>
-          <div id="stage4" class="mt-1 text-lg font-bold num">—</div>
-        </div>
-      </div>
 
-      <div class="mt-5">
-        <div class="text-sm text-slate-600 font-medium mb-2">مستهدف الأيام (1–30)</div>
-        <div id="daysGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"></div>
-      </div>
-    </section>
+        <!-- Detail -->
+        <div class="lg:col-span-7 rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div id="detailTitle" class="font-semibold truncate">اختر دار/مجمع من القائمة</div>
+              <div id="detailSub" class="text-xs text-slate-500 mt-1">ستظهر هنا التفاصيل + المراحل + خطة 30 يوم</div>
+            </div>
+            <button id="btnCopySummary" class="hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">
+              نسخ ملخص
+            </button>
+          </div>
 
-    <!-- الجدول الكامل -->
-    <section class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 p-6 overflow-x-auto">
-      <div class="flex items-center justify-between gap-3 mb-4">
-        <div class="text-sm text-slate-600 font-medium">الجدول الكامل</div>
-        <div class="text-xs text-slate-500">يعرض جميع الأعمدة كما هي (مراحل + 1–30)</div>
-      </div>
+          <div id="detail" class="p-4 space-y-4"></div>
+        </div>
+      </section>
 
-      <table class="min-w-full text-sm text-right">
-        <thead class="border-b bg-slate-50">
-          <tr id="tableHead"></tr>
-        </thead>
-        <tbody id="tableBody" class="divide-y"></tbody>
-      </table>
-    </section>
+      <section class="text-xs text-slate-500 text-center py-4">
+        ملاحظة: هذه الصفحة تعمل محليًا بدون سيرفر (يفضل تشغيلها عبر سيرفر محلي لتفادي قيود المتصفح عند تحميل ملفات).
+      </section>
+    </div>
   </main>
 
 <script>
-const fmtSAR = (n) => {
-  const v = Number(n || 0);
-  return v.toLocaleString('ar-SA', { maximumFractionDigits: 2 }) + ' ر.س';
-};
+  // ---------- helpers ----------
+  const SAR = new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 });
+  const SAR2 = new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', maximumFractionDigits: 2 });
+  const pct = (v) => (Number.isFinite(v) ? (v*100).toFixed(1) + '٪' : '—');
 
-const pickStageFromPercent = (p) => {
-  const v = Number(p || 0);
-  if (v >= 75) return 4;
-  if (v >= 50) return 3;
-  if (v >= 25) return 2;
-  return 1;
-};
+  const stripWeird = (s) => (s ?? '').toString()
+    .replaceAll('\u00A0', ' ')
+    .replaceAll('‏', '')
+    .replaceAll('ر.س.', '')
+    .replaceAll('ر.س', '')
+    .trim();
 
-let RAW = [];
-let FILTERED = [];
-let HEADERS = [];
-
-function renderPortfolioSummary(list){
-  const totalGoal = list.reduce((a,r)=>a + (Number(r._portfolio_goal)||0), 0);
-  const totalCov  = list.reduce((a,r)=>a + (Number(r._coverage)||0), 0);
-  const percent = totalGoal > 0 ? (totalCov/totalGoal)*100 : 0;
-  const stage = pickStageFromPercent(percent);
-
-  document.getElementById('portfolioTotal').textContent = fmtSAR(totalGoal);
-  document.getElementById('portfolioTotal2').textContent = fmtSAR(totalGoal);
-  document.getElementById('coverageTotal').textContent = fmtSAR(totalCov);
-  document.getElementById('achPercent').textContent = percent.toFixed(1) + '%';
-  document.getElementById('progressBar').style.width = Math.min(100, percent).toFixed(1) + '%';
-  document.getElementById('stageBadge').textContent = 'المرحلة: ' + stage;
-  document.getElementById('achBadge').textContent = 'تحقيق: ' + percent.toFixed(1) + '%';
-}
-
-function fillBranchSelect(list){
-  const sel = document.getElementById('branchSelect');
-  sel.innerHTML = "";
-  list.forEach((r, idx)=>{
-    const opt = document.createElement('option');
-    opt.value = r._m;
-    opt.textContent = r["اسم الدار"] ?? ('#' + (r._m ?? idx));
-    sel.appendChild(opt);
-  });
-}
-
-function renderSelected(m){
-  const r = FILTERED.find(x => String(x._m) === String(m)) || FILTERED[0];
-  if(!r) return;
-
-  document.getElementById('selectedName').textContent = r["اسم الدار"] ?? '—';
-  document.getElementById('selectedAnnual').textContent = fmtSAR(r._annual_cost);
-  document.getElementById('selectedStudents').textContent = (r._students ?? 0).toLocaleString('ar-SA');
-  document.getElementById('selectedCoverage').textContent = fmtSAR(r._coverage);
-  document.getElementById('selectedGoal').textContent = fmtSAR(r._portfolio_goal);
-  document.getElementById('selectedRatio').textContent = (r._ratio_percent != null ? r._ratio_percent.toFixed(0) + '%' : (r["نسبة"] || '—'));
-
-  document.getElementById('stage1').textContent = fmtSAR(r._stage1);
-  document.getElementById('stage2').textContent = fmtSAR(r._stage2);
-  document.getElementById('stage3').textContent = fmtSAR(r._stage3);
-  document.getElementById('stage4').textContent = fmtSAR(r._stage4);
-
-  const daysGrid = document.getElementById('daysGrid');
-  daysGrid.innerHTML = "";
-  for(let i=1;i<=30;i++){
-    const v = (r._days && r._days[String(i)]) ? r._days[String(i)] : 0;
-    const card = document.createElement('div');
-    card.className = "rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3";
-    card.innerHTML = `
-      <div class="text-xs text-slate-500">اليوم ${i}</div>
-      <div class="mt-1 font-semibold num">${fmtSAR(v)}</div>
-    `;
-    daysGrid.appendChild(card);
+  function toNumber(value){
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const s = stripWeird(value).replaceAll(',', '').replaceAll('%','').replaceAll('٪','');
+    const m = s.match(/-?\d+(\.\d+)?/);
+    if (!m) return null;
+    const n = Number(m[0]);
+    return Number.isFinite(n) ? n : null;
   }
-}
 
-function renderTable(list){
-  const head = document.getElementById('tableHead');
-  const body = document.getElementById('tableBody');
-  head.innerHTML = "";
-  body.innerHTML = "";
+  function toPercent(value){
+    const n = toNumber(value);
+    if (n === null) return null;
+    return n > 1.5 ? (n/100) : n;
+  }
 
-  HEADERS.forEach(h=>{
-    const th = document.createElement('th');
-    th.className = "px-3 py-2 font-medium text-slate-600 whitespace-nowrap";
-    th.textContent = h;
-    head.appendChild(th);
-  });
+  function safeMoney(n){
+    if (!Number.isFinite(n)) return '—';
+    // بعض القيم فيها كسور طويلة من التحويل: نقربها
+    const rounded = Math.round(n);
+    return SAR.format(rounded);
+  }
 
-  list.forEach(r=>{
-    const tr = document.createElement('tr');
-    HEADERS.forEach(h=>{
-      const td = document.createElement('td');
-      td.className = "px-3 py-2 whitespace-nowrap num";
-      td.textContent = (r[h] ?? "");
-      tr.appendChild(td);
+  function safeMoney2(n){
+    if (!Number.isFinite(n)) return '—';
+    return SAR2.format(n);
+  }
+
+  function sum(arr){ return arr.reduce((a,b)=>a+(Number.isFinite(b)?b:0), 0); }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  // ---------- normalize dataset ----------
+  const AR = {
+    id: ['م','id','ID'],
+    name: ['اسم الدار','اسم الفرع','الفرع','name','branch'],
+    annualCost: ['إجمالي تكلفة الدار سنويا','اجمالي تكلفة الدار سنويا','إجمالي التكلفة السنوية','اجمالي التكلفة السنوية','annual_cost','cost'],
+    students: ['عدد الطالبات','عدد الطلاب','students'],
+    coveragePercent: ['نسبة','نسبة التغطية','coverage_percent'],
+    coverageAmount: ['التغطية','التغطية الحالية','coverage_amount'],
+    portfolioTarget: ['هدف المحفظة','هدف المحفظة الاجمالي','portfolio_target','target'],
+    stage1: ['المرحلة الأول','المرحلة الاول','المرحلة الأولى','stage1'],
+    stage2: ['المرحلة الثانية','stage2'],
+    stage3: ['المرحلة الثالثة','stage3'],
+    stage4: ['المرحلة الرابعة','stage4'],
+  };
+
+  function pick(row, keys){
+    for (const k of keys){
+      if (k in row) return row[k];
+    }
+    // محاولة مطابقة مرنة: تطابق جزئي
+    const entries = Object.entries(row);
+    for (const k of keys){
+      const found = entries.find(([kk]) => kk && kk.toString().includes(k));
+      if (found) return found[1];
+    }
+    return undefined;
+  }
+
+  function normalizeRow(row){
+    const days = [];
+    for (let d=1; d<=30; d++){
+      const key = String(d);
+      days.push(toNumber(row[key]));
+    }
+    const stages = [
+      toNumber(pick(row, AR.stage1)),
+      toNumber(pick(row, AR.stage2)),
+      toNumber(pick(row, AR.stage3)),
+      toNumber(pick(row, AR.stage4)),
+    ].map(v => Number.isFinite(v) ? v : null);
+
+    const annual_cost = toNumber(pick(row, AR.annualCost));
+    const students = toNumber(pick(row, AR.students));
+    const coverage_amount = toNumber(pick(row, AR.coverageAmount));
+    const portfolio_target = toNumber(pick(row, AR.portfolioTarget));
+    const coverage_percent = toPercent(pick(row, AR.coveragePercent));
+
+    // progress: نأخذ التغطية/الهدف إن توفر، وإلا من النسبة إن توفرت
+    let progress = null;
+    if (Number.isFinite(coverage_amount) && Number.isFinite(portfolio_target) && portfolio_target > 0){
+      progress = coverage_amount / portfolio_target;
+    } else if (Number.isFinite(coverage_percent)){
+      progress = coverage_percent;
+    }
+
+    return {
+      id: toNumber(pick(row, AR.id)),
+      name: (pick(row, AR.name) ?? '—').toString().trim(),
+      annual_cost,
+      students: Number.isFinite(students) ? Math.round(students) : null,
+      coverage_percent,
+      coverage_amount,
+      portfolio_target,
+      stages,
+      days,
+      progress
+    };
+  }
+
+  // ---------- state ----------
+  let DATA = [];
+  let SELECTED = null;
+  let SORT_DIR = -1; // default desc
+  let RAW_SOURCE = null; // keep original for export
+
+  // ---------- render ----------
+  const el = (id) => document.getElementById(id);
+
+  function renderSummary(list){
+    const sumTarget = sum(list.map(x => x.portfolio_target));
+    const sumCoverage = sum(list.map(x => x.coverage_amount));
+    const sumStudents = sum(list.map(x => x.students));
+    const progress = (sumTarget > 0) ? (sumCoverage / sumTarget) : null;
+
+    el('sumTarget').textContent = safeMoney(sumTarget);
+    el('sumCoverage').textContent = safeMoney(sumCoverage);
+    el('sumStudents').textContent = Number.isFinite(sumStudents) ? sumStudents.toLocaleString('ar-SA') : '—';
+
+    if (progress === null || !Number.isFinite(progress)){
+      el('sumProgress').textContent = '—';
+      el('sumProgressHint').textContent = '';
+      el('sumProgressBar').style.width = '0%';
+    } else {
+      const p = clamp(progress, 0, 1);
+      el('sumProgress').textContent = pct(p);
+      el('sumProgressHint').textContent = `(${safeMoney(sumCoverage)} من ${safeMoney(sumTarget)})`;
+      el('sumProgressBar').style.width = (p*100).toFixed(1) + '%';
+    }
+  }
+
+  function rowCard(item){
+    const p = Number.isFinite(item.progress) ? clamp(item.progress,0,1) : 0;
+    const target = safeMoney(item.portfolio_target);
+    const coverage = safeMoney(item.coverage_amount);
+    const students = (item.students ?? '—').toString();
+    return `
+      <button data-id="${item.__idx}" class="w-full text-right p-4 border-b border-slate-100 hover:bg-slate-50 focus:outline-none focus:bg-slate-50">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="font-semibold truncate">${escapeHtml(item.name)}</div>
+            <div class="mt-1 text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-1">
+              <span>الطالبات: <span class="text-slate-700">${escapeHtml(students)}</span></span>
+              <span>الهدف: <span class="text-slate-700">${escapeHtml(target)}</span></span>
+              <span>التغطية: <span class="text-slate-700">${escapeHtml(coverage)}</span></span>
+            </div>
+          </div>
+          <span class="shrink-0 text-xs rounded-full border border-slate-200 bg-white px-2 py-1 text-slate-700">${pct(p)}</span>
+        </div>
+        <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div class="h-full bg-slate-900 rounded-full" style="width:${(p*100).toFixed(1)}%"></div>
+        </div>
+      </button>
+    `;
+  }
+
+  function renderList(list){
+    el('list').innerHTML = list.map(rowCard).join('');
+    el('countAll').textContent = DATA.length;
+    el('countShown').textContent = list.length;
+
+    el('list').querySelectorAll('button[data-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.getAttribute('data-id'));
+        SELECTED = DATA[idx];
+        renderDetail(SELECTED);
+        // highlight
+        el('list').querySelectorAll('button[data-id]').forEach(b=>b.classList.remove('bg-slate-50'));
+        btn.classList.add('bg-slate-50');
+      });
     });
-    body.appendChild(tr);
+  }
+
+  function renderDetail(item){
+    if (!item){
+      el('detailTitle').textContent = 'اختر دار/مجمع من القائمة';
+      el('detailSub').textContent = 'ستظهر هنا التفاصيل + المراحل + خطة 30 يوم';
+      el('detail').innerHTML = '';
+      el('btnCopySummary').classList.add('hidden');
+      return;
+    }
+
+    const annual = safeMoney(item.annual_cost);
+    const students = item.students ?? '—';
+    const coverage = safeMoney(item.coverage_amount);
+    const target = safeMoney(item.portfolio_target);
+    const p = Number.isFinite(item.progress) ? clamp(item.progress,0,1) : null;
+
+    el('detailTitle').textContent = item.name;
+    el('detailSub').textContent = `آخر تحديث: محلي — مصدر البيانات: ${RAW_SOURCE ?? 'غير محدد'}`;
+    el('btnCopySummary').classList.remove('hidden');
+
+    const stages = item.stages ?? [];
+    const stageSum = sum(stages);
+    const stageRows = stages.map((v,i)=>{
+      const ratio = (stageSum>0 && Number.isFinite(v)) ? (v/stageSum) : 0;
+      return `
+        <div class="flex items-center justify-between gap-3">
+          <div class="text-sm text-slate-700">المرحلة ${i+1}</div>
+          <div class="text-sm font-medium">${safeMoney(v)}</div>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div class="h-full bg-slate-900 rounded-full" style="width:${(clamp(ratio,0,1)*100).toFixed(1)}%"></div>
+        </div>
+      `;
+    }).join('<div class="h-3"></div>');
+
+    const days = (item.days ?? []).map(v => Number.isFinite(v) ? v : null);
+    const hasDays = days.some(v => Number.isFinite(v));
+    const daySum = sum(days);
+    const maxDay = Math.max(...days.map(v => Number.isFinite(v)?v:0));
+    const grid = hasDays ? `
+      <div class="grid grid-cols-6 sm:grid-cols-10 gap-2">
+        ${days.map((v,idx)=>{
+          const intensity = maxDay>0 && Number.isFinite(v) ? clamp(v/maxDay, 0, 1) : 0;
+          const bg = intensity === 0 ? 'bg-slate-50 border-slate-200' : 'bg-slate-900/5 border-slate-200';
+          const ring = intensity>0.75 ? 'ring-2 ring-slate-900/20' : '';
+          return `
+            <div class="rounded-xl border ${bg} ${ring} p-2">
+              <div class="text-[11px] text-slate-500">يوم ${idx+1}</div>
+              <div class="mt-1 text-xs font-medium">${Number.isFinite(v) ? safeMoney2(v) : '—'}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : `<div class="text-sm text-slate-500">لا توجد خطة 30 يوم في الملف لهذه الدار/المجمع.</div>`;
+
+    el('detail').innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="text-xs text-slate-500">إجمالي تكلفة سنويًا</div>
+          <div class="mt-2 text-lg font-semibold">${annual}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="text-xs text-slate-500">عدد الطالبات</div>
+          <div class="mt-2 text-lg font-semibold">${escapeHtml(students.toString())}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="text-xs text-slate-500">نسبة التحقيق</div>
+          <div class="mt-2 text-lg font-semibold">${p===null?'—':pct(p)}</div>
+          <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div class="h-full bg-slate-900 rounded-full" style="width:${(p===null?0:(p*100)).toFixed(1)}%"></div>
+          </div>
+          <div class="mt-2 text-xs text-slate-500">${coverage} من ${target}</div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 p-4">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">هدف المحفظة ومراحلها</div>
+          <div class="text-xs text-slate-500">مجموع المراحل: ${safeMoney(stageSum)}</div>
+        </div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-3">
+            ${stageRows || '<div class="text-sm text-slate-500">لا توجد بيانات مراحل.</div>'}
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div class="text-xs text-slate-500">الهدف الإجمالي</div>
+            <div class="mt-2 text-xl font-semibold">${target}</div>
+            <div class="mt-4 text-xs text-slate-500">التغطية الحالية من الأوقاف</div>
+            <div class="mt-1 text-base font-semibold">${coverage}</div>
+            <div class="mt-4 text-xs text-slate-500">مجموع خطة 30 يوم</div>
+            <div class="mt-1 text-base font-semibold">${safeMoney(daySum)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 p-4">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold">خطة 30 يوم (رمضان)</div>
+          <div class="text-xs text-slate-500">${hasDays ? `أعلى يوم: ${safeMoney(maxDay)}` : ''}</div>
+        </div>
+        <div class="mt-4">${grid}</div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str){
+    return (str ?? '').toString()
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function applyFiltersAndRender(){
+    const q = el('searchInput').value.trim().toLowerCase();
+    const onlyWithDays = el('toggleOnlyWithDays').checked;
+    let list = DATA.slice();
+
+    if (q){
+      list = list.filter(x => (x.name ?? '').toLowerCase().includes(q));
+    }
+    if (onlyWithDays){
+      list = list.filter(x => (x.days ?? []).some(v => Number.isFinite(v)));
+    }
+
+    const key = el('sortKey').value;
+    const dir = SORT_DIR;
+
+    list.sort((a,b)=>{
+      const A = metric(a, key);
+      const B = metric(b, key);
+      if (A === B) return 0;
+      if (A === null) return 1;
+      if (B === null) return -1;
+      return (A < B ? -1 : 1) * dir;
+    });
+
+    renderSummary(list);
+    renderList(list);
+
+    // keep selected visible
+    if (SELECTED){
+      renderDetail(SELECTED);
+    }
+  }
+
+  function metric(x, key){
+    switch(key){
+      case 'progress': return Number.isFinite(x.progress) ? x.progress : null;
+      case 'target': return Number.isFinite(x.portfolio_target) ? x.portfolio_target : null;
+      case 'coverage': return Number.isFinite(x.coverage_amount) ? x.coverage_amount : null;
+      case 'students': return Number.isFinite(x.students) ? x.students : null;
+      case 'cost': return Number.isFinite(x.annual_cost) ? x.annual_cost : null;
+      case 'name': return (x.name ?? '').toString();
+      default: return null;
+    }
+  }
+
+  // ---------- load data ----------
+  function setData(rawRows, sourceLabel){
+    RAW_SOURCE = sourceLabel;
+    const normalized = rawRows.map(normalizeRow)
+      .filter(x => x.name && x.name !== '—');
+
+    // attach stable index for selection
+    DATA = normalized.map((x, idx) => ({...x, __idx: idx}));
+
+    SELECTED = null;
+    el('list').innerHTML = '';
+    renderDetail(null);
+    applyFiltersAndRender();
+  }
+
+  async function loadSample(){
+    const res = await fetch('./data.sample.json', { cache: 'no-store' });
+    const j = await res.json();
+    setData(j.rows ?? [], 'data.sample.json');
+  }
+
+  function readFile(file){
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const reader = new FileReader();
+    reader.onerror = () => alert('تعذر قراءة الملف.');
+    reader.onload = () => {
+      const text = reader.result;
+      if (ext === 'json'){
+        try{
+          const j = JSON.parse(text);
+          const rows = Array.isArray(j) ? j : (j.rows ?? j.data ?? []);
+          if (!Array.isArray(rows) || rows.length === 0) throw new Error('no rows');
+          setData(rows, file.name);
+        } catch(e){
+          alert('JSON غير صالح أو لا يحتوي على rows/data.');
+        }
+        return;
+      }
+      // CSV
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = results.data || [];
+          if (!rows.length) return alert('CSV لا يحتوي على بيانات.');
+          setData(rows, file.name);
+        },
+        error: () => alert('تعذر قراءة CSV.')
+      });
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- interactions ----------
+  el('btnLoadSample').addEventListener('click', loadSample);
+
+  el('fileInput').addEventListener('change', (e)=>{
+    const file = e.target.files?.[0];
+    if (!file) return;
+    readFile(file);
+    e.target.value = '';
   });
-}
 
-function applyFilters(){
-  const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
-  const stageFilter = document.getElementById('stageFilter').value;
+  el('searchInput').addEventListener('input', applyFiltersAndRender);
+  el('toggleOnlyWithDays').addEventListener('change', applyFiltersAndRender);
 
-  FILTERED = RAW.filter(r=>{
-    const name = String(r["اسم الدار"] || '').toLowerCase();
-    const matchQ = !q || name.includes(q);
-    if(!matchQ) return false;
-    if(stageFilter === "all") return true;
-    const percent = r._portfolio_goal > 0 ? (r._coverage / r._portfolio_goal) * 100 : 0;
-    const st = pickStageFromPercent(percent);
-    return String(st) === String(stageFilter);
+  el('sortKey').addEventListener('change', applyFiltersAndRender);
+  el('sortDir').addEventListener('click', ()=>{
+    SORT_DIR *= -1;
+    el('sortDir').textContent = SORT_DIR === -1 ? '↓' : '↑';
+    applyFiltersAndRender();
   });
 
-  renderPortfolioSummary(FILTERED);
-  fillBranchSelect(FILTERED);
-  renderTable(FILTERED);
-
-  const sel = document.getElementById('branchSelect');
-  renderSelected(sel.value || (FILTERED[0]?FILTERED[0]._m:null));
-}
-
-fetch('data.json')
-  .then(res => res.json())
-  .then(data => {
-    RAW = data;
-    // headers: اعرض نفس الأعمدة الأصلية فقط (بدون الحقول المساعدة _*)
-    HEADERS = Object.keys(RAW[0]).filter(k => !k.startsWith('_'));
-    applyFilters();
-
-    document.getElementById('searchInput').addEventListener('input', applyFilters);
-    document.getElementById('stageFilter').addEventListener('change', applyFilters);
-    document.getElementById('branchSelect').addEventListener('change', (e)=> renderSelected(e.target.value));
-  })
-  .catch(err => {
-    document.body.innerHTML = '<div class="p-8 text-red-600">تعذر تحميل data.json — تأكد أن الملف موجود بجانب index.html</div>';
-    console.error(err);
+  el('btnReset').addEventListener('click', ()=>{
+    el('searchInput').value = '';
+    el('toggleOnlyWithDays').checked = false;
+    el('sortKey').value = 'progress';
+    SORT_DIR = -1;
+    el('sortDir').textContent = '↓';
+    SELECTED = null;
+    applyFiltersAndRender();
   });
+
+  el('btnExportJson').addEventListener('click', ()=>{
+    const payload = { generated_at: new Date().toISOString(), rows: DATA.map(({__idx, ...x})=>x) };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'exported-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  el('btnCopySummary').addEventListener('click', async ()=>{
+    if (!SELECTED) return;
+    const s = SELECTED;
+    const lines = [
+      `الفرع: ${s.name}`,
+      `الهدف: ${safeMoney(s.portfolio_target)}`,
+      `التغطية: ${safeMoney(s.coverage_amount)}`,
+      `نسبة التحقيق: ${Number.isFinite(s.progress) ? pct(clamp(s.progress,0,1)) : '—'}`,
+      `التكلفة السنوية: ${safeMoney(s.annual_cost)}`,
+      `عدد الطالبات: ${s.students ?? '—'}`,
+    ].join('\n');
+    try{
+      await navigator.clipboard.writeText(lines);
+      el('btnCopySummary').textContent = 'تم النسخ ✓';
+      setTimeout(()=> el('btnCopySummary').textContent = 'نسخ ملخص', 1200);
+    } catch {
+      alert('تعذر النسخ من المتصفح.');
+    }
+  });
+
+  // auto load sample on first open
+  loadSample();
 </script>
-
 </body>
 </html>
