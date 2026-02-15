@@ -1,0 +1,21 @@
+[
+  {
+    "branch_name": "مجمع عمر بن الخطاب",
+    "annual_cost_total": 350000,
+    "coverage_percent": 35,
+    "cost_items": [
+      {
+        "name": "رواتب وتعليم",
+        "amount": 220000
+      },
+      {
+        "name": "تشغيل وصيانة",
+        "amount": 80000
+      },
+      {
+        "name": "برامج وأنشطة",
+        "amount": 50000
+      }
+    ]
+  }
+]
