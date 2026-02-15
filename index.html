@@ -1,272 +1,101 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>بطاقة المحفظة + تفاصيل الفرع</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة الدور والمحافظ</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
 </head>
 
 <body class="bg-slate-50 text-slate-900">
-  <!--
-    ✅ بدون هيدر/فوتر
-    ✅ Tailwind CDN
-    ✅ يقرأ JSON (محوّل من CSV)
-    ✅ تعيين أعمدة CSV -> JSON عبر أسماء مفاتيح واضحة
-    ✅ يولّد: هدف المحفظة + 4 مراحل بناءً على التكلفة السنوية وإعدادات بسيطة
-  -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <section class="mb-6">
+      <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-sm text-slate-500">هدف المحفظة الإجمالي</div>
+            <div id="portfolioTotal" class="text-3xl font-bold num mt-1">—</div>
+          </div>
+          <div>
+            <span id="stageBadge" class="px-3 py-1 rounded-full text-xs bg-slate-100 ring-1 ring-slate-200">
+              المرحلة: —
+            </span>
+          </div>
+        </div>
 
-  <main class="min-h-screen">
-    <div class="mx-auto max-w-4xl px-4 py-10">
-      <div id="app" class="space-y-6"></div>
-
-      <div class="mt-8 text-xs text-slate-500">
-        مصدر البيانات: <span class="font-mono">data.json</span> (نفس مجلد الملف).
+        <div class="mt-4">
+          <div class="flex justify-between text-xs text-slate-500 mb-1">
+            <span>نسبة التحقيق</span>
+            <span id="achPercent">0%</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-3">
+            <div id="progressBar" class="bg-emerald-500 h-3 rounded-full" style="width:0%"></div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 overflow-x-auto">
+      <table class="min-w-full text-sm text-right">
+        <thead class="border-b bg-slate-50">
+          <tr id="tableHead"></tr>
+        </thead>
+        <tbody id="tableBody" class="divide-y"></tbody>
+      </table>
+    </section>
   </main>
 
-  <script>
-    /***********************
-     * 1) الإعدادات البسيطة
-     ***********************/
-    const SETTINGS = {
-      currency: "ر.س",
-      // هدف المحفظة = اجمالي التكلفة السنوية * multiplier
-      portfolioMultiplier: 8, // مثال: 8 سنوات تغطية كرأس مال/محفظة
-      // تقسيم الهدف على 4 مراحل (يجب أن مجموعها = 1)
-      phaseWeights: [0.10, 0.20, 0.30, 0.40], // مرحلة1..4
-      phaseNames: ["المرحلة 1", "المرحلة 2", "المرحلة 3", "المرحلة 4"],
-      // إذا لم يوجد currentRaised في البيانات: نولّد تحقق مبدئي من نسبة التغطية
-      inferRaisedFromCoverage: true
-    };
+<script>
+fetch('data.json')
+  .then(res => res.json())
+  .then(data => {
+    const tableHead = document.getElementById('tableHead');
+    const tableBody = document.getElementById('tableBody');
 
-    /*******************************
-     * 2) مصدر البيانات
-     *******************************/
-    const DATA_SOURCE = {
-      mode: "fetch",
-      url: "./data.json"
-    };
+    const headers = Object.keys(data[0]);
+    headers.forEach(h => {
+      const th = document.createElement('th');
+      th.className = "px-3 py-2 font-medium text-slate-600 whitespace-nowrap";
+      th.textContent = h;
+      tableHead.appendChild(th);
+    });
 
-    /************************************
-     * 3) أدوات مساعدة (تنسيق وحسابات)
-     ************************************/
-    const fmt = (n) => {
-      const num = Number(n || 0);
-      return num.toLocaleString("ar-SA");
-    };
+    let totalPortfolio = 0;
+    let totalCoverage = 0;
 
-    const normalizePercent = (p) => {
-      const x = Number(p || 0);
-      return x > 1 ? (x / 100) : x; // 35 -> 0.35
-    };
+    data.forEach(row => {
+      const tr = document.createElement('tr');
 
-    const clamp01 = (x) => Math.max(0, Math.min(1, x));
-
-    function buildPortfolio(annualCost, coveragePercent, currentRaised) {
-      const totalGoal = Number(annualCost || 0) * SETTINGS.portfolioMultiplier;
-
-      const phases = SETTINGS.phaseWeights.map((w, i) => {
-        const goal = totalGoal * w;
-        return { name: SETTINGS.phaseNames[i] || `المرحلة ${i + 1}`, goal };
+      headers.forEach(h => {
+        const td = document.createElement('td');
+        td.className = "px-3 py-2 whitespace-nowrap num";
+        td.textContent = row[h];
+        tr.appendChild(td);
       });
 
-      // المتحقق (Raised): إن لم يُرسل بالبيانات، ممكن نستنتجه من نسبة التغطية * الهدف (اختياري)
-      let raised = Number(currentRaised || 0);
-      if (!raised && SETTINGS.inferRaisedFromCoverage) {
-        raised = totalGoal * normalizePercent(coveragePercent);
-      }
+      totalPortfolio += Number(row["هدف المحفظة"]);
+      totalCoverage += Number(row["التغطية"]);
+      tableBody.appendChild(tr);
+    });
 
-      const progress = totalGoal > 0 ? clamp01(raised / totalGoal) : 0;
+    const percent = ((totalCoverage / totalPortfolio) * 100).toFixed(1);
 
-      // تحديد المرحلة الحالية بناءً على التحقق التراكمي للمراحل
-      let stageIndex = 0;
-      let cumulative = 0;
-      for (let i = 0; i < phases.length; i++) {
-        cumulative += phases[i].goal;
-        if (raised < cumulative) { stageIndex = i; break; }
-        stageIndex = i; // وصل/تجاوز
-      }
+    document.getElementById('portfolioTotal').textContent =
+      totalPortfolio.toLocaleString('ar-SA') + " ر.س";
+    document.getElementById('achPercent').textContent = percent + "%";
+    document.getElementById('progressBar').style.width = percent + "%";
 
-      return {
-        totalGoal,
-        phases,
-        raised,
-        progress,
-        stageName: phases[stageIndex]?.name || "—"
-      };
-    }
+    let stage = "الأولى";
+    if (percent >= 75) stage = "الرابعة";
+    else if (percent >= 50) stage = "الثالثة";
+    else if (percent >= 25) stage = "الثانية";
 
-    function computeCoverageAmounts(annualCost, coveragePercent) {
-      const p = normalizePercent(coveragePercent);
-      const covered = Number(annualCost || 0) * p;
-      const gap = Math.max(0, Number(annualCost || 0) - covered);
-      return { covered, gap, p };
-    }
+    document.getElementById('stageBadge').textContent = "المرحلة: " + stage;
+  });
+</script>
 
-    /************************************
-     * 4) قوالب HTML (Tailwind)
-     ************************************/
-    function cardTemplate(row, portfolio, coverage) {
-      const progressPct = Math.round(portfolio.progress * 100);
-
-      const costItems = Array.isArray(row.cost_items) && row.cost_items.length
-        ? row.cost_items
-        : [{ name: "إجمالي التكلفة السنوية", amount: row.annual_cost_total }];
-
-      const phasesList = portfolio.phases.map((ph) => `
-        <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <div class="text-sm font-medium text-slate-800">${ph.name}</div>
-          <div class="text-sm text-slate-600">${fmt(ph.goal)} <span class="text-slate-400">${SETTINGS.currency}</span></div>
-        </div>
-      `).join("");
-
-      const costList = costItems.map((it) => `
-        <div class="flex items-center justify-between py-2">
-          <div class="text-sm text-slate-700">${it.name}</div>
-          <div class="text-sm font-medium text-slate-900">${fmt(it.amount)} <span class="text-slate-400">${SETTINGS.currency}</span></div>
-        </div>
-      `).join("");
-
-      return `
-        <section class="space-y-6">
-
-          <!-- بطاقة هدف المحفظة -->
-          <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <div class="text-sm text-slate-500">هدف المحفظة — ${row.branch_name || "فرع غير معروف"}</div>
-                <div class="mt-1 text-3xl font-semibold tracking-tight">${fmt(portfolio.totalGoal)} <span class="text-slate-400 text-base">${SETTINGS.currency}</span></div>
-              </div>
-
-              <div class="shrink-0">
-                <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
-                  <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-                  ${portfolio.stageName}
-                </span>
-              </div>
-            </div>
-
-            <div class="mt-5">
-              <div class="flex items-center justify-between text-xs text-slate-500">
-                <span>المتحقق: <span class="font-medium text-slate-700">${fmt(portfolio.raised)} ${SETTINGS.currency}</span></span>
-                <span>${progressPct}%</span>
-              </div>
-
-              <div class="mt-2 h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div class="h-full rounded-full bg-emerald-500" style="width:${progressPct}%;"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- تفاصيل الفرع -->
-          <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-            <div class="flex items-center justify-between gap-3">
-              <h2 class="text-lg font-semibold text-slate-900">تفاصيل الفرع</h2>
-              <span class="text-xs text-slate-500">${row.branch_name || ""}</span>
-            </div>
-
-            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div class="text-xs text-slate-500">إجمالي التكلفة السنوية</div>
-                <div class="mt-1 text-xl font-semibold">${fmt(row.annual_cost_total)} <span class="text-slate-400 text-sm">${SETTINGS.currency}</span></div>
-              </div>
-
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div class="text-xs text-slate-500">التغطية الحالية من أوقاف الجمعية</div>
-                <div class="mt-1 text-xl font-semibold">${fmt(coverage.covered)} <span class="text-slate-400 text-sm">${SETTINGS.currency}</span></div>
-                <div class="mt-1 text-xs text-slate-500">نسبة التغطية: <span class="font-medium text-slate-700">${Math.round(coverage.p * 100)}%</span></div>
-              </div>
-
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div class="text-xs text-slate-500">الفجوة السنوية المتبقية</div>
-                <div class="mt-1 text-xl font-semibold">${fmt(coverage.gap)} <span class="text-slate-400 text-sm">${SETTINGS.currency}</span></div>
-              </div>
-            </div>
-
-            <!-- بنود التكلفة السنوية -->
-            <div class="mt-6">
-              <div class="text-sm font-semibold text-slate-900">بنود التكلفة السنوية</div>
-              <div class="mt-3 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white px-4">
-                ${costList}
-              </div>
-            </div>
-
-            <!-- هدف المحفظة + المراحل -->
-            <div class="mt-6">
-              <div class="flex items-center justify-between">
-                <div class="text-sm font-semibold text-slate-900">هدف المحفظة الإجمالي</div>
-                <div class="text-sm font-semibold text-slate-900">${fmt(portfolio.totalGoal)} <span class="text-slate-400">${SETTINGS.currency}</span></div>
-              </div>
-
-              <div class="mt-3 grid grid-cols-1 gap-3">
-                ${phasesList}
-              </div>
-
-              <div class="mt-3 text-xs text-slate-500">
-                * الهدف مُولّد تلقائيًا = التكلفة السنوية × <span class="font-mono">${SETTINGS.portfolioMultiplier}</span> (يمكنك تغييره من الإعدادات).
-              </div>
-            </div>
-          </div>
-        </section>
-      `;
-    }
-
-    /************************************
-     * 5) تحميل البيانات + بناء الصفحة
-     ************************************/
-    async function loadData() {
-      const res = await fetch(DATA_SOURCE.url, { cache: "no-store" });
-      if (!res.ok) throw new Error("تعذر تحميل ملف JSON: " + res.status);
-      return await res.json();
-    }
-
-    async function main() {
-      const app = document.getElementById("app");
-      try {
-        const data = await loadData();
-        if (!Array.isArray(data) || data.length === 0) {
-          app.innerHTML = `
-            <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 p-6">
-              <div class="text-sm text-slate-600">لا توجد بيانات للعرض.</div>
-            </div>
-          `;
-          return;
-        }
-
-        // نعرض أول فرع (ويمكنك لاحقًا تعمل اختيار/بحث)
-        const row = data[0];
-
-        // تعيين الأعمدة (مفاتيح JSON المتوقعة):
-        // branch_name           = اسم الفرع
-        // annual_cost_total     = إجمالي التكلفة السنوية
-        // coverage_percent      = نسبة التغطية
-        // cost_items[] (اختياري)= بنود التكلفة السنوية
-        // current_raised (اختياري)= المتحقق في المحفظة
-
-        const annualCost = Number(row.annual_cost_total || 0);
-        const coveragePercent = row.coverage_percent ?? 0;
-        const currentRaised = row.current_raised ?? 0;
-
-        const portfolio = buildPortfolio(annualCost, coveragePercent, currentRaised);
-        const coverage = computeCoverageAmounts(annualCost, coveragePercent);
-
-        app.innerHTML = cardTemplate(row, portfolio, coverage);
-      } catch (e) {
-        app.innerHTML = `
-          <div class="rounded-3xl bg-white shadow-sm ring-1 ring-red-200 p-6">
-            <div class="text-sm font-semibold text-red-700">حدث خطأ أثناء عرض البيانات</div>
-            <div class="mt-2 text-xs text-slate-600">${String(e.message || e)}</div>
-            <div class="mt-3 text-xs text-slate-500">
-              تأكد من أن ملف <span class="font-mono">data.json</span> صحيح وموجود بجانب <span class="font-mono">index.html</span>.
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    main();
-  </script>
 </body>
 </html>
